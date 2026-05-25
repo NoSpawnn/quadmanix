@@ -10,7 +10,6 @@
       ...
     }@inputs:
     let
-
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -22,13 +21,13 @@
           system:
           f {
             inherit system;
-            pkgs = import inputs.nixpkgs { inherit system; };
+            pkgs = import nixpkgs { inherit system; };
           }
         );
     in
     {
       nixosModules.default = import ./modules/nixos.nix;
-      homeManagerModules.default = import ./modules/home-manager.nix ;
+      homeManagerModules.default = import ./modules/home-manager.nix;
 
       devShells = forEachSupportedSystem (
         { pkgs, system }:
