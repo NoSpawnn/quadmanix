@@ -17,10 +17,6 @@ let
   cfg = config.services.quadmanix;
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
-  homeFileEntries = utils.genDirEntries {
-    inherit quadletFiles;
-    prefix = ".config/containers/systemd";
-  };
 in
 {
   options.services.quadmanix = {
@@ -34,7 +30,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.file = homeFileEntries;
+    home.file = utils.genDirEntries quadletFiles ".config/containers/systemd";
 
     home.activation.auto-restart-changed-quadlets =
       let

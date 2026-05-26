@@ -25,10 +25,6 @@ let
   });
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
-  etcFileEntries = utils.genDirEntries {
-    inherit quadletFiles;
-    prefix = "containers/systemd";
-  };
 in
 {
   options.services.quadmanix = {
@@ -51,7 +47,7 @@ in
   config = lib.mkMerge [
     (mkIf (cfg.enable && !(isNull cfg.quadlets.source)) {
       virtualisation.podman.enable = true;
-      environment.etc = etcFileEntries;
+      environment.etc = utils.genDirEntries quadletFiles "containers/systemd";
     })
 
     {
