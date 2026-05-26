@@ -25,14 +25,20 @@ let
     in
     builtins.filter isQuadletFile (lib.flatten paths);
 
-  listHosts =
-    dir:
-    let
-      entries = builtins.readDir dir;
-      hosts = builtins.filter ({ type, ... }: type == "directory") entries;
-    in
-    hosts;
+  genDirEntries =
+    { quadletFiles, prefix }:
+    builtins.listToAttrs (
+      map (
+        p:
+        let
+          fileName = baseNameOf p;
+          # https://discourse.nixos.org/t/not-allowed-to-refer-to-a-store-path-error/5226/4
+          destPath = builtins.unsafeDiscardStringContext "${prefix}/${fileName}";
+        in
+        lib.attrsets.nameValuePair destPath { source = p; }
+      ) quadletFiles
+    );
 in
 {
-  inherit listQuadletFiles;
+  inherit listQuadletFiles genDirEntries;
 }
