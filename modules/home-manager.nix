@@ -30,7 +30,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.file = utils.genDirEntries quadletFiles ".config/containers/systemd";
+    home.file = utils.genDirEntries ".config/containers/systemd" quadletFiles;
 
     # FIXME: this whole thing is horribly inefficient...
     home.activation.auto-restart-changed-quadlets =

@@ -37,7 +37,7 @@ let
     builtins.filter isQuadletFile (lib.flatten paths);
 
   genDirEntries =
-    quadletFiles: prefix:
+    prefix: quadletFiles: 
     builtins.listToAttrs (
       map (
         p:
