@@ -15,33 +15,43 @@ let
 
   cfg = config.services.quadmanix;
 
-  quadletUsers = lib.filterAttrs (
-    _: u:
-    lib.attrByPath [
-      "services"
-      "quadmanix"
-      "enable"
-    ] false u
-  ) config.home-manager.users;
-  autoCreatedUsers = lib.genAttrs (builtins.attrNames quadletUsers) (_: {
+  quadletUsers = builtins.filter ({ value, ... }: value.services.quadmanix.enable or false) (
+    lib.attrsets.attrsToList config.home-manager.users
+  );
+  autoCreatedUsers = lib.genAttrs (map (u: u.name) quadletUsers) (_: {
     isNormalUser = true;
     linger = true;
     extraGroups = [ "podman" ];
   });
+
+  quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
+  etcFileEntries = utils.genDirEntries {
+    inherit quadletFiles;
+    prefix = "containers/systemd";
+  };
 in
 {
   options.services.quadmanix = {
     enable = mkEnableOption "quadmanix";
+
     autoCreateUsers = mkOption {
       type = types.bool;
       default = true;
       description = "Automatically create users defined in the HomeManager module of Quadmanix. Can be set independantly of enable.";
     };
+
+    quadlets = {
+      source = mkOption {
+        type = types.nullOr types.path;
+        description = "Directory from which to source this machine's system Quadlets.";
+      };
+    };
   };
 
   config = lib.mkMerge [
-    (mkIf cfg.enable {
+    (mkIf (cfg.enable && !(isNull cfg.quadlets.source)) {
       virtualisation.podman.enable = true;
+      environment.etc = etcFileEntries;
     })
 
     {
