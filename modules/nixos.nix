@@ -40,7 +40,9 @@ in
   };
 
   config = lib.mkMerge [
-    (mkIf cfg.enable { })
+    (mkIf cfg.enable {
+      virtualisation.podman.enable = true;
+    })
 
     {
       users.users = mkIf cfg.autoCreateUsers autoCreatedUsers;
