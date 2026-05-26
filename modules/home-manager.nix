@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -34,5 +35,39 @@ in
 
   config = mkIf cfg.enable {
     home.file = homeFileEntries;
+
+    home.activation.auto-restart-changed-quadlets =
+      let
+        stateDir = "${config.home.homeDirectory}/.local/state/home-manager";
+        stampFile = "${stateDir}/quadmanix-quadlets.sha256";
+        unitNames = map utils.getUnitName quadletFiles;
+      in
+      # FIXME: this whole thing is horribly inefficient...
+      lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
+        unit_names=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") unitNames)} )
+        files=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") quadletFiles)} )
+
+        if [ ''${#files[@]} -gt 0 ]; then
+          newsum=$(
+            printf "%s\n" ''${files[@]} \
+              | sort \
+              | xargs -r sha256sum 2>/dev/null \
+              | sha256sum \
+              | cut -d' ' -f1
+          )
+        else
+          newsum=""
+        fi
+
+        oldsum=""
+        if [ -f "${stampFile}" ]; then
+          oldsum=$(cat "${stampFile}")
+        fi
+
+        if [ "$newsum" != "$oldsum" ]; then
+          ${pkgs.systemd}/bin/systemctl --user try-restart "''${unit_names[@]}" 
+          echo "$newsum" > "${stampFile}"
+        fi
+      '';
   };
 }

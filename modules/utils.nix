@@ -9,7 +9,18 @@ let
     ".image"
     ".kube"
   ];
-  isQuadletFile = s: builtins.any (suf: lib.strings.hasSuffix suf s) quadletSuffixes;
+  isQuadletFile = path: builtins.any (suf: lib.strings.hasSuffix suf path) quadletSuffixes;
+
+  suffixPattern = lib.concatStringsSep "|" (map (s: lib.removePrefix "." s) quadletSuffixes);
+  getUnitName =
+    path:
+    let
+      # FIXME: this doesnt correctly handle networks or pods
+      bn = baseNameOf path;
+      m = builtins.match "^(.*)\\.(${suffixPattern})$" bn;
+    in
+    assert m != null;
+    builtins.head m;
 
   listQuadletFiles =
     dir:
@@ -40,5 +51,5 @@ let
     );
 in
 {
-  inherit listQuadletFiles genDirEntries;
+  inherit listQuadletFiles genDirEntries getUnitName;
 }
