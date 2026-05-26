@@ -17,11 +17,11 @@ let
 
   quadletUsers = lib.filterAttrs (
     _: u:
-    lib.getAttrFromPath [
+    lib.attrByPath [
       "services"
       "quadmanix"
       "enable"
-    ] u
+    ] false u
   ) config.home-manager.users;
 in
 {
