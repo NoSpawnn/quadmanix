@@ -16,17 +16,10 @@ let
   cfg = config.services.quadmanix;
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
-  homeFileEntries = builtins.listToAttrs (
-    map (
-      p:
-      let
-        fileName = builtins.baseNameOf p;
-        # https://discourse.nixos.org/t/not-allowed-to-refer-to-a-store-path-error/5226/4
-        destPath = builtins.unsafeDiscardStringContext ".config/containers/systemd/${fileName}";
-      in
-      lib.attrsets.nameValuePair destPath { source = p; }
-    ) quadletFiles
-  );
+  homeFileEntries = utils.genDirEntries {
+    inherit quadletFiles;
+    prefix = ".config/containers/systemd";
+  };
 in
 {
   options.services.quadmanix = {
