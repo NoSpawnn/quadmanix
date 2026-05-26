@@ -32,13 +32,13 @@ in
   config = mkIf cfg.enable {
     home.file = utils.genDirEntries quadletFiles ".config/containers/systemd";
 
+    # FIXME: this whole thing is horribly inefficient...
     home.activation.auto-restart-changed-quadlets =
       let
         stateDir = "${config.home.homeDirectory}/.local/state/home-manager";
         stampFile = "${stateDir}/quadmanix-quadlets.sha256";
         unitNames = map utils.getUnitName quadletFiles;
       in
-      # FIXME: this whole thing is horribly inefficient...
       lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
         unit_names=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") unitNames)} )
         files=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") quadletFiles)} )
