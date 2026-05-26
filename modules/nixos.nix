@@ -23,6 +23,11 @@ let
       "enable"
     ] false u
   ) config.home-manager.users;
+  autoCreatedUsers = lib.genAttrs (builtins.attrNames quadletUsers) (_: {
+    isNormalUser = true;
+    linger = true;
+    extraGroups = [ "podman" ];
+  });
 in
 {
   options.services.quadmanix = {
@@ -38,13 +43,7 @@ in
     (mkIf cfg.enable { })
 
     {
-      users.users = mkIf cfg.autoCreateUsers (
-        lib.genAttrs (builtins.attrNames quadletUsers) (_: {
-          isNormalUser = true;
-          linger = true;
-          extraGroups = [ "podman" ];
-        })
-      );
+      users.users = mkIf cfg.autoCreateUsers autoCreatedUsers;
     }
   ];
 }
