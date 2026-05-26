@@ -35,7 +35,7 @@ in
     autoCreateUsers = mkOption {
       type = types.bool;
       default = true;
-      description = "Automatically create users defined in the HomeManager module of Quadmanix.";
+      description = "Automatically create users defined in the HomeManager module of Quadmanix. Can be set independantly of enable.";
     };
   };
 
