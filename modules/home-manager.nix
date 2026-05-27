@@ -61,7 +61,8 @@ in
         fi
 
         if [ "$newsum" != "$oldsum" ]; then
-          ${pkgs.systemd}/bin/systemctl --user try-restart "''${unit_names[@]}" 
+          # TODO: maybe try-restart here instead? or dynamically based on the unit's attrs? idk
+          ${pkgs.systemd}/bin/systemctl --user restart "''${unit_names[@]}" 
           echo "$newsum" > "${stampFile}"
         fi
       '';
