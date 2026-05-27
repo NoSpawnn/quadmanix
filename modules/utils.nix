@@ -15,9 +15,13 @@ let
   getUnitName =
     path:
     let
-      bn = baseNameOf path;
-      m = builtins.match "^(.*)\\.(${suffixPattern})$" bn;
+      m = builtins.match "^(.*)\\.(${suffixPattern})$" (baseNameOf path);
       suf = lib.lists.last m;
+      bn =
+        let
+          n = builtins.length m;
+        in
+        lib.concatStrings (lib.take (n - 1) m);
 
       # TODO: handle .image and .build
       res =
