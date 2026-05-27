@@ -15,12 +15,28 @@ let
   getUnitName =
     path:
     let
-      # FIXME: this doesnt correctly handle networks or pods
       bn = baseNameOf path;
       m = builtins.match "^(.*)\\.(${suffixPattern})$" bn;
+      suf = lib.lists.last m;
+
+      # TODO: handle .image and .build
+      res =
+        if suf == "pod" then
+          "${bn}-pod"
+        else if suf == "network" then
+          "${bn}-network"
+        else if suf == "volume" then
+          "${bn}-volume"
+        else if suf == "container" || suf == "kube" then
+          "${bn}"
+        else
+          null;
     in
-    assert m != null;
-    builtins.head m;
+    if res == null then
+      # this should never happen due to the list of files always being acquired through `listQuadletFiles`
+      throw "file '${bn}' does not have a valid quadlet extension ('${suf}')"
+    else
+      res;
 
   listQuadletFiles =
     dir:
@@ -37,7 +53,7 @@ let
     builtins.filter isQuadletFile (lib.flatten paths);
 
   genDirEntries =
-    prefix: quadletFiles: 
+    prefix: quadletFiles:
     builtins.listToAttrs (
       map (
         p:
