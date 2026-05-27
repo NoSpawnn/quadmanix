@@ -35,36 +35,67 @@ in
     # FIXME: this whole thing is horribly inefficient...
     home.activation.auto-restart-changed-quadlets =
       let
-        stateDir = "${config.home.homeDirectory}/.local/state/home-manager";
-        stampFile = "${stateDir}/quadmanix-quadlets.sha256";
         unitNames = map utils.getUnitName quadletFiles;
+
+        stateDir = "\${XDG_STATE_HOME:-$HOME/.local/state}/home-manager/gcroots";
+        newStateFile = pkgs.writeText "quadmanix-quadlets.json" (
+          builtins.toJSON {
+            quadlets = map (q: {
+              name = baseNameOf q;
+              hash = builtins.hashString "sha256" (builtins.readFile q);
+            }) quadletFiles;
+          }
+        );
+        statePath = "${stateDir}/${newStateFile.name}";
+        oldStateFile = statePath;
+
+        dictEntries = map (p: "quadmanix_files[${p.name}]=${p.value}") (
+          lib.zipListsWith (k: v: {
+            name = builtins.unsafeDiscardStringContext (baseNameOf k);
+            value = builtins.unsafeDiscardStringContext v;
+          }) quadletFiles unitNames
+        );
       in
       lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
-        unit_names=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") unitNames)} )
-        files=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") quadletFiles)} )
+        newstate="''$(${pkgs.coreutils}/bin/cat ${newStateFile})"
+        jq="${pkgs.jq}/bin/jq"
+        declare -A quadmanix_files
+        ${lib.concatStringsSep "\n" dictEntries}
 
-        if [ ''${#files[@]} -gt 0 ]; then
-          newsum=$(
-            printf "%s\n" ''${files[@]} \
-              | sort \
-              | xargs -r sha256sum 2>/dev/null \
-              | sha256sum \
-              | cut -d' ' -f1
-          )
-        else
-          newsum=""
+        to_start=()
+        to_stop=()
+        to_restart=()
+        for name in ''${!quadmanix_files[@]}; do
+          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) && ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) ]]; then
+            # FIXME: this doesnt work since this file doesnt exist in the dict
+            to_stop+=("''${quadmanix_files[''$name]}")
+            continue
+          fi
+
+          if $jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1; then
+            to_start+=("''${quadmanix_files[''$name]}")
+          fi
+
+          old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
+          new_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${newStateFile}")
+          if [ "$old_hash" != "$new_hash" ]; then
+            to_restart+=("''${quadmanix_files[''$name]}")
+          fi
+        done
+
+        if [ ''${#to_start[@]} -gt 0 ]; then
+          ${pkgs.systemd}/bin/systemctl --user start ''${to_start[@]}
         fi
 
-        oldsum=""
-        if [ -f "${stampFile}" ]; then
-          oldsum=$(cat "${stampFile}")
+        if [ ''${#to_stop[@]} -gt 0 ]; then
+          ${pkgs.systemd}/bin/systemctl --user stop ''${to_stop[@]}
         fi
 
-        if [ "$newsum" != "$oldsum" ]; then
-          # TODO: maybe try-restart here instead? or dynamically based on the unit's attrs? idk
-          ${pkgs.systemd}/bin/systemctl --user restart "''${unit_names[@]}" 
-          echo "$newsum" > "${stampFile}"
+        if [ ''${#to_restart[@]} -gt 0 ]; then
+          ${pkgs.systemd}/bin/systemctl --user restart ''${to_restart[@]} 
         fi
+
+        echo "$newstate" > "${statePath}"
       '';
   };
 }
