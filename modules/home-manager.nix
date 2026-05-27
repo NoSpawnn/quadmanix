@@ -66,14 +66,17 @@ in
         to_stop=()
         to_restart=()
         for name in ''${!quadmanix_files[@]}; do
-          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) && ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) ]]; then
+          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) && \
+                ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) ]]; then
             # FIXME: this doesnt work since this file doesnt exist in the dict
             to_stop+=("''${quadmanix_files[''$name]}")
             continue
           fi
 
-          if $jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1; then
+          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) && \
+                ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) ]]; then
             to_start+=("''${quadmanix_files[''$name]}")
+            continue
           fi
 
           old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
