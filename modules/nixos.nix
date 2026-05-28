@@ -45,10 +45,16 @@ in
   };
 
   config = lib.mkMerge [
-    (mkIf (cfg.enable && !(isNull cfg.quadlets.source)) {
-      virtualisation.podman.enable = true;
-      environment.etc = utils.genDirEntries "containers/systemd" quadletFiles;
-    })
+    (mkIf cfg.enable (
+      lib.mkMerge [
+        {
+          virtualisation.podman.enable = true;
+        }
+        (mkIf (cfg.quadlets.source != null) {
+          environment.etc = utils.genDirEntries "containers/systemd" quadletFiles;
+        })
+      ]
+    ))
 
     {
       users.users = mkIf cfg.autoCreateUsers autoCreatedUsers;
