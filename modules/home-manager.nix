@@ -43,48 +43,45 @@ in
             quadlets = map (q: {
               name = baseNameOf q;
               hash = builtins.hashString "sha256" (builtins.readFile q);
+              unitName = utils.getUnitName q;
             }) quadletFiles;
           }
         );
         statePath = "${stateDir}/${newStateFile.name}";
         oldStateFile = statePath;
-
-        dictEntries = map (p: "quadmanix_files[${p.name}]=${p.value}") (
-          lib.zipListsWith (k: v: {
-            name = builtins.unsafeDiscardStringContext (baseNameOf k);
-            value = builtins.unsafeDiscardStringContext v;
-          }) quadletFiles unitNames
-        );
       in
       lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
-        newstate="''$(${pkgs.coreutils}/bin/cat ${newStateFile})"
         jq="${pkgs.jq}/bin/jq"
-        declare -A quadmanix_files
-        ${lib.concatStringsSep "\n" dictEntries}
 
-        to_start=()
-        to_stop=()
-        to_restart=()
-        for name in ''${!quadmanix_files[@]}; do
-          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) && \
-                ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) ]]; then
-            # FIXME: this doesnt work since this file doesnt exist in the dict
-            to_stop+=("''${quadmanix_files[''$name]}")
-            continue
-          fi
+        if [ ! -f ${oldStateFile} ]; then
+          to_start=( ${lib.concatStringsSep " " (map (p: "\"${p}\"") unitNames)} )
+          to_stop=()
+          to_restart=()
+        else
+          to_start=()
+          to_stop=()
+          to_restart=()
 
-          if [[ $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1) && \
-                ! $($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1) ]]; then
-            to_start+=("''${quadmanix_files[''$name]}")
-            continue
-          fi
+          while IFS=$'\t' read -r name unitName; do
+            in_new_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
+            if [ $in_new_statefile == "false" ]; then
+              to_stop+=("$unitName")
+            fi
+          done < <($jq -r '.quadlets[] | [.name, .unitName] | @tsv' "${oldStateFile}")
 
-          old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
-          new_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${newStateFile}")
-          if [ "$old_hash" != "$new_hash" ]; then
-            to_restart+=("''${quadmanix_files[''$name]}")
-          fi
-        done
+          while IFS=$'\t' read -r name unit_name new_hash; do
+            in_old_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
+
+            if [ "$in_old_statefile" == "false" ]; then
+              to_start+=("$unit_name")
+            else
+              old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
+              if [ "$old_hash" != "$new_hash" ]; then
+                to_restart+=("$unit_name")
+              fi
+            fi
+          done < <($jq -r '.quadlets[] | [.name, .unitName, .hash] | @tsv' "${newStateFile}")
+        fi
 
         if [ ''${#to_start[@]} -gt 0 ]; then
           ${pkgs.systemd}/bin/systemctl --user start ''${to_start[@]}
@@ -98,7 +95,7 @@ in
           ${pkgs.systemd}/bin/systemctl --user restart ''${to_restart[@]} 
         fi
 
-        echo "$newstate" > "${statePath}"
+        ${pkgs.coreutils}/bin/cat ${newStateFile} > ${oldStateFile}
       '';
   };
 }

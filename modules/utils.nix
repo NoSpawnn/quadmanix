@@ -40,7 +40,7 @@ let
       # this should never happen due to the list of files always being acquired through `listQuadletFiles`
       throw "file '${bn}' does not have a valid quadlet extension ('${suf}')"
     else
-      res;
+      "${res}.service";
 
   listQuadletFiles =
     dir:
