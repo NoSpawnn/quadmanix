@@ -32,7 +32,7 @@ in
   config = mkIf cfg.enable {
     home.file = utils.genDirEntries ".config/containers/systemd" quadletFiles;
 
-    # FIXME: this whole thing is horribly inefficient...
+    # TODO: implemen a restart strategy option? to control the exact systemctl command that is used for that
     home.activation.auto-restart-changed-quadlets =
       let
         stateFileVersion = 1;
