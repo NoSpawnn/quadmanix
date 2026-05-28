@@ -26,8 +26,8 @@
         );
     in
     {
-      nixosModules.default = import ./modules/nixos.nix;
-      homeManagerModules.default = import ./modules/home-manager.nix;
+      nixosModules.quadmanix = import ./modules/nixos.nix;
+      homeManagerModules.quadmanix = import ./modules/home-manager.nix;
 
       devShells = forEachSupportedSystem (
         { pkgs, system }:
