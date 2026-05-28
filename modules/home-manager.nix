@@ -35,11 +35,14 @@ in
     # FIXME: this whole thing is horribly inefficient...
     home.activation.auto-restart-changed-quadlets =
       let
+        stateFileVersion = 1;
+
         unitNames = map utils.getUnitName quadletFiles;
 
         stateDir = "\${XDG_STATE_HOME:-$HOME/.local/state}/home-manager/gcroots";
         newStateFile = pkgs.writeText "quadmanix-quadlets.json" (
           builtins.toJSON {
+            version = stateFileVersion;
             quadlets = map (q: {
               name = baseNameOf q;
               hash = builtins.hashString "sha256" (builtins.readFile q);
@@ -58,29 +61,36 @@ in
           to_stop=()
           to_restart=()
         else
-          to_start=()
-          to_stop=()
-          to_restart=()
+          old_state_version=$($jq -r '.version' "${oldStateFile}")
 
-          while IFS=$'\t' read -r name unitName; do
-            in_new_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
-            if [ $in_new_statefile == "false" ]; then
-              to_stop+=("$unitName")
-            fi
-          done < <($jq -r '.quadlets[] | [.name, .unitName] | @tsv' "${oldStateFile}")
+          if [ $old_state_version -eq 1 ]; then
+            to_start=()
+            to_stop=()
+            to_restart=()
 
-          while IFS=$'\t' read -r name unit_name new_hash; do
-            in_old_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
-
-            if [ "$in_old_statefile" == "false" ]; then
-              to_start+=("$unit_name")
-            else
-              old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
-              if [ "$old_hash" != "$new_hash" ]; then
-                to_restart+=("$unit_name")
+            while IFS=$'\t' read -r name unitName; do
+              in_new_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${newStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
+              if [ $in_new_statefile == "false" ]; then
+                to_stop+=("$unitName")
               fi
-            fi
-          done < <($jq -r '.quadlets[] | [.name, .unitName, .hash] | @tsv' "${newStateFile}")
+            done < <($jq -r '.quadlets[] | [.name, .unitName] | @tsv' "${oldStateFile}")
+
+            while IFS=$'\t' read -r name unit_name new_hash; do
+              in_old_statefile=$($jq -e --arg name "$name" 'any(.quadlets[]; .name == $name)' "${oldStateFile}" >/dev/null 2>&1 && echo "true" || echo "false")
+
+              if [ "$in_old_statefile" == "false" ]; then
+                to_start+=("$unit_name")
+              else
+                old_hash=$($jq -r --arg name "$name" '(.quadlets[] | select(.name == $name) | .hash) // ""' "${oldStateFile}")
+                if [ "$old_hash" != "$new_hash" ]; then
+                  to_restart+=("$unit_name")
+                fi
+              fi
+            done < <($jq -r '.quadlets[] | [.name, .unitName, .hash] | @tsv' "${newStateFile}")
+          else
+            ${pkgs.coreutils}/bin/echo "Quadmanix: unknown statefile version \"$old_state_version\""
+            exit 1
+          fi
         fi
 
         if [ ''${#to_start[@]} -gt 0 ]; then
