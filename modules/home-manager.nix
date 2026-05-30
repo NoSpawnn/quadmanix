@@ -17,6 +17,9 @@ let
   cfg = config.services.quadmanix;
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
+  extraFiles = utils.listExtraFiles cfg.quadlets.source (
+    builtins.trace cfg.quadlets.extraFiles cfg.quadlets.extraFiles
+  );
 in
 {
   options.services.quadmanix = {
@@ -26,11 +29,16 @@ in
         type = types.path;
         description = "Directory from which to source this user's Quadlets.";
       };
+      extraFiles = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Quadmanix only symlinks files with a valid Quadlet unit file extension from the source directory. Add extra filenames (or patterns) to include. Uses builtins.match under the hood.";
+      };
     };
   };
 
   config = mkIf cfg.enable {
-    home.file = utils.genDirEntries ".config/containers/systemd" quadletFiles;
+    home.file = utils.genDirEntries ".config/containers/systemd" (quadletFiles ++ extraFiles);
 
     # TODO: implemen a restart strategy option? to control the exact systemctl command that is used for that
     home.activation.auto-restart-changed-quadlets =

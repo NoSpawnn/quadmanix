@@ -42,7 +42,7 @@ let
     else
       "${res}.service";
 
-  listQuadletFiles =
+  listFiles =
     dir:
     let
       entries = builtins.readDir dir;
@@ -54,10 +54,23 @@ let
         if type == "directory" then listQuadletFiles full else full
       ) entries;
     in
-    builtins.filter isQuadletFile (lib.flatten paths);
+    lib.flatten paths;
+
+  listQuadletFiles = dir: builtins.filter isQuadletFile (listFiles dir);
+  listExtraFiles =
+    dir: patterns:
+    let
+      filterFunc =
+        path:
+        let
+          fileName = baseNameOf path;
+        in
+        builtins.any (pattern: (builtins.match pattern fileName) != null) patterns;
+    in
+    builtins.filter filterFunc (listFiles dir);
 
   genDirEntries =
-    prefix: quadletFiles:
+    prefix: files:
     builtins.listToAttrs (
       map (
         p:
@@ -67,9 +80,14 @@ let
           destPath = builtins.unsafeDiscardStringContext "${prefix}/${fileName}";
         in
         lib.attrsets.nameValuePair destPath { source = p; }
-      ) quadletFiles
+      ) files
     );
 in
 {
-  inherit listQuadletFiles genDirEntries getUnitName;
+  inherit
+    listQuadletFiles
+    listExtraFiles
+    genDirEntries
+    getUnitName
+    ;
 }
