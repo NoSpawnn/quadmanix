@@ -17,9 +17,7 @@ let
   cfg = config.services.quadmanix;
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
-  extraFiles = utils.listExtraFiles cfg.quadlets.source (
-    builtins.trace cfg.quadlets.extraFiles cfg.quadlets.extraFiles
-  );
+  extraFiles = utils.listExtraFiles cfg.quadlets.source cfg.quadlets.extraFiles;
 in
 {
   options.services.quadmanix = {
