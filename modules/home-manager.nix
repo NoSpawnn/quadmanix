@@ -17,7 +17,9 @@ let
   cfg = config.services.quadmanix;
 
   quadletFiles = utils.listQuadletFiles cfg.quadlets.source;
-  extraFiles = utils.listExtraFiles cfg.quadlets.source cfg.quadlets.extraFiles;
+  extraFiles = utils.listExtraFiles cfg.quadlets.source (
+    builtins.trace cfg.quadlets.extraFiles cfg.quadlets.extraFiles
+  );
 in
 {
   options.services.quadmanix = {
@@ -30,7 +32,9 @@ in
       extraFiles = mkOption {
         type = types.listOf types.str;
         default = [ ];
-        description = "Quadmanix only symlinks files with a valid Quadlet unit file extension from the source directory. Add extra filenames (or patterns) to include. Uses builtins.match under the hood.";
+        description = ''
+          Quadmanix only symlinks files with a valid Quadlet unit file extension from the source directory. Add extra filenames (or patterns) to include. Uses builtins.match under the hood.
+        '';
       };
     };
   };

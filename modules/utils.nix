@@ -51,7 +51,7 @@ let
         let
           full = "${dir}/${name}";
         in
-        if type == "directory" then listQuadletFiles full else full
+        if type == "directory" then listFiles full else full
       ) entries;
     in
     lib.flatten paths;
@@ -60,6 +60,7 @@ let
   listExtraFiles =
     dir: patterns:
     let
+      files = listFiles dir;
       filterFunc =
         path:
         let
@@ -67,7 +68,7 @@ let
         in
         builtins.any (pattern: (builtins.match pattern fileName) != null) patterns;
     in
-    builtins.filter filterFunc (listFiles dir);
+    builtins.filter filterFunc files;
 
   genDirEntries =
     prefix: files:
@@ -75,9 +76,11 @@ let
       map (
         p:
         let
-          fileName = baseNameOf p;
-          # https://discourse.nixos.org/t/not-allowed-to-refer-to-a-store-path-error/5226/4
-          destPath = builtins.unsafeDiscardStringContext "${prefix}/${fileName}";
+          relPath = builtins.head (builtins.match "^/nix/store/[^/]+/(.*)$" p);
+          destPath = lib.strings.normalizePath (
+            # https://discourse.nixos.org/t/not-allowed-to-refer-to-a-store-path-error/5226/4
+            builtins.unsafeDiscardStringContext "${prefix}/${relPath}"
+          );
         in
         lib.attrsets.nameValuePair destPath { source = p; }
       ) files
