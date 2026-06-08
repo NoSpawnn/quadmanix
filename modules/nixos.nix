@@ -45,19 +45,18 @@ in
   };
 
   config = lib.mkMerge [
-    (mkIf cfg.enable (
-      lib.mkMerge [
-        {
-          virtualisation.podman.enable = true;
-        }
-        (mkIf (cfg.quadlets.source != null) {
-          environment.etc = utils.genDirEntries "containers/systemd" quadletFiles;
-        })
-      ]
-    ))
+    # podman needs to be enabled for any of this to work, system or not, but there is maybe a nicer way to do this, or just trust the end user to enable it if the system module isn't enabled? same with the auto user creation. much to think about.
+    (mkIf (cfg.enable || quadletUsers != [ ]) {
+      virtualisation.containers.enable = true;
+      virtualisation.podman.enable = true;
+    })
 
-    {
-      users.users = mkIf cfg.autoCreateUsers autoCreatedUsers;
-    }
+    (mkIf (cfg.quadlets.source != null) {
+      environment.etc = utils.genDirEntries "containers/systemd" quadletFiles;
+    })
+
+    (mkIf cfg.autoCreateUsers {
+      users.users = autoCreatedUsers;
+    })
   ];
 }
